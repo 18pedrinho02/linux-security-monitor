@@ -29,8 +29,19 @@ def analyze_events(events):
             f"{alert['attempts']} failed attempts within "
             f"{TIME_WINDOW_SECONDS // 60} minutes"
         )
-
-    return alerts
+        
+    success_alerts = detect_success_after_brute_force(events)
+    
+    for alert in success_alerts:
+        print(
+            f"[ALERT] Successful login from "
+            f"{alert['source_ip']} after "
+            f"{alert['attempts']} failed attempts within "
+            f"{TIME_WINDOW_SECONDS // 60} minutes"
+        )
+        
+    all_alerts = alerts + success_alerts
+    return all_alerts
 
 
 def detect_brute_force(failed_logins):
@@ -85,35 +96,49 @@ def detect_brute_force(failed_logins):
 
     return alerts
 
+
 def detect_success_after_brute_force(events):
-    events_by_ip={}
-    
+    events_by_ip = {}
+
     for event in events:
         ip = event["source_ip"]
-        
-        events_by_ip.setdefault(ip,[]).append(event)
-        
-    alerts=[]
-    
+
+        events_by_ip.setdefault(ip, []).append(event)
+
+    alerts = []
+
     for ip, ip_events in events_by_ip.items():
-        ip_events.sort(key=lambda event:event["timestamp_dt"])
-        
+        ip_events.sort(key=lambda event: event["timestamp_dt"])
+
         for event in ip_events:
             if event["event_type"] != "successful_login":
                 continue
-            
-            success_time=event["timastamp_dt"]
-            failed_attemps=0
-            
+
+            success_time = event["timestamp_dt"]
+            failed_attempts = 0
+
             for previous_event in ip_events:
-                if previous_event["timestamp_dt"]>=success_time:
+
+                if previous_event["timestamp_dt"] >= success_time:
                     break
-                if previous_event["timestamp_dt"]<=success_time:
+
+                if previous_event["event_type"] != "failed_login":
                     continue
-                
-                difference=(success_time - previous_event["timestamp_dt"]).total_seconds()
-                
-                if difference<=TIME_WINDOW_SECONDS:
-                    failed_attemps += 1
-            
+
+                difference = (
+                    success_time - previous_event["timestamp_dt"]
+                ).total_seconds()
+
+                if difference <= TIME_WINDOW_SECONDS:
+                    failed_attempts += 1
+
+            if failed_attempts >= FAILED_LOGIN_THRESHOLD:
+                alerts.append({
+                    "source_ip": ip,
+                    "attempts": failed_attempts,
+                    "event_type": "successful_login_after_brute_force"
+                })
+
+                break
+
     return alerts

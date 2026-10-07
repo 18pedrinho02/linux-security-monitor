@@ -6,3 +6,4 @@ Sep 27 10:15:28 server sshd[1234]: Accepted password for pedro from 192.168.1.70
 Sep 27 10:15:30 server sshd[1234]: Failed password for root from 192.168.1.50 port 51238 ssh2
 Sep 27 10:15:32 server sshd[1234]: Failed password for root from 192.168.1.50 port 51239 ssh2
 Sep 27 10:15:34 server sshd[1234]: Failed password for root from 192.168.1.50 port 51240 ssh2
+Sep 27 10:15:36 server sshd[1234]: Accepted password for root from 192.168.1.50 port 51241 ssh2
