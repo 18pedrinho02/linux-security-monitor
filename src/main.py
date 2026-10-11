@@ -2,6 +2,7 @@ from pathlib import Path
 
 from src.log_parser import parse_log_line
 from src.analyzer import analyze_events
+from src.reporter import export_alerts_to_json
 
 
 def main():
@@ -18,7 +19,12 @@ def main():
 
     print(f"[INFO] Processed {len(events)} events")
 
-    analyze_events(events)
+    alerts = analyze_events(events)
+
+    output_file = log_file.parent / "alerts.json"
+    export_alerts_to_json(alerts, output_file)
+
+    print(f"[INFO] Exported {len(alerts)} alerts to {output_file}")
 
 
 if __name__ == "__main__":

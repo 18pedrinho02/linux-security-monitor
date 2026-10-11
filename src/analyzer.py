@@ -1,4 +1,5 @@
 from collections import Counter
+from datetime import datetime, timedelta
 
 FAILED_LOGIN_THRESHOLD = 5
 TIME_WINDOW_SECONDS = 300
@@ -21,26 +22,13 @@ def analyze_events(events):
         print(f"{ip}: {count} failed attempts")
 
     alerts = detect_brute_force(failed_logins)
-
-    for alert in alerts:
-        print(
-            f"[ALERT] Possible brute-force activity from "
-            f"{alert['source_ip']}: "
-            f"{alert['attempts']} failed attempts within "
-            f"{TIME_WINDOW_SECONDS // 60} minutes"
-        )
-        
     success_alerts = detect_success_after_brute_force(events)
-    
-    for alert in success_alerts:
-        print(
-            f"[ALERT] Successful login from "
-            f"{alert['source_ip']} after "
-            f"{alert['attempts']} failed attempts within "
-            f"{TIME_WINDOW_SECONDS // 60} minutes"
-        )
-        
     all_alerts = alerts + success_alerts
+
+    for alert in all_alerts:
+        print(format_alert(alert))
+        
+        
     return all_alerts
 
 
@@ -86,8 +74,13 @@ def detect_brute_force(failed_logins):
 
                     alerts.append({
                         "source_ip": ip,
+                        "event_type": "brute_force",
                         "attempts": attempts,
-                        "window_seconds": TIME_WINDOW_SECONDS
+                        "window_seconds": TIME_WINDOW_SECONDS,
+                        "severity":get_alert_severity("brute_force"),
+                        "first_seen":start_time.isoformat(),
+                        "last_seen":current_time.isoformat(),
+                        "detected_at":datetime.now().isoformat()
                     })
 
                     last_alert_time[ip] = current_time
@@ -136,9 +129,42 @@ def detect_success_after_brute_force(events):
                 alerts.append({
                     "source_ip": ip,
                     "attempts": failed_attempts,
-                    "event_type": "successful_login_after_brute_force"
+                    "event_type": "successful_login_after_brute_force",
+                    "window_seconds": TIME_WINDOW_SECONDS,
+                    "severity":get_alert_severity("successful_login_after_brute_force")
                 })
 
                 break
 
     return alerts
+
+
+def get_alert_severity(event_type):
+    if event_type == "brute_force":
+        return "HIGH"
+    if event_type == "successful_login_after_brute_force":
+        return "CRITICAL"
+    
+    return "LOW"
+
+def format_alert(alert):
+    severity=alert["severity"]
+    attempts=alert["attempts"]
+    source_ip=alert["source_ip"]
+    window_minutes=alert["window_seconds"]//60
+    
+    if alert["event_type"]=="brute_force":
+        return (
+            f"[ALERT] [{severity}] Possible brute-force activity from "
+            f"{source_ip}: {attempts} failed attempts within "
+            f"{window_minutes} minutes"
+        )
+
+    if alert["event_type"] == "successful_login_after_brute_force":
+        return (
+            f"[ALERT] [{severity}] Successful login from "
+            f"{source_ip} after {attempts} failed attempts within "
+            f"{window_minutes} minutes"
+        )
+
+    return f"[ALERT] [{severity}] Unknown alert type"
