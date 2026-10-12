@@ -319,3 +319,95 @@ def test_brute_force_alert_includes_username():
     
     assert len(alerts)==1
     assert alerts[0]["usernames"]==["admin"]
+    
+def test_brute_force_alert_includes_multiple_usernames():
+    start = datetime(2026, 9, 27, 10, 0, 0)
+    
+    usernames=["admin","root", "admin", "root", "admin"]
+    
+    events=[
+        create_failed_event(
+            "192.168.1.50",
+            start + timedelta(minutes=minutes),
+            username=username
+        )
+        for minutes, username in enumerate(usernames)
+    ]
+    
+    alerts = detect_brute_force(events)
+    
+    assert len(alerts)==1
+    assert alerts[0]["usernames"] == ["admin", "root"]
+    
+def test_brute_force_alert_includes_description():
+    start = datetime(2026, 9, 27, 10, 0, 0)
+    
+    events = [
+        create_failed_event(
+            "192.168.1.50",
+            start + timedelta(minutes=minutes),
+            username="admin"
+        )
+        for minutes in [0,1,2,3,4]
+    ]
+    
+    alerts = detect_brute_force(events)
+    
+    assert len(alerts)==1
+    
+    description = alerts[0]["description"]
+    
+    assert "192.168.1.50" in description
+    assert "5" in description
+    assert "300" in description
+    assert "admin" in description
+    
+def test_brute_force_alert_without_username():
+    start=datetime(2026, 9, 27, 10, 0, 0)
+    
+    events=[
+        create_failed_event(
+            "192.268.1.50",
+            start + timedelta(minutes=minutes)
+        )
+        
+        for minutes in [0,1,2,3,4]
+    ]
+    
+    alerts = detect_brute_force(events)
+    
+    assert len(alerts)==1
+    assert alerts[0]["usernames"] == []
+    assert "unknown" in alerts[0]["description"]
+    
+def test_success_after_brute_force_alert_includes_metadata():
+    start = datetime(2026, 9, 27, 10, 0, 0)
+    
+    events = [
+        create_failed_event(
+            "192.168.1.50",
+            start + timedelta(minutes=minutes),
+            username="admin"
+        )
+        for minutes in [0,1,2,3,4]
+    ]
+    
+    events.append({
+        "timestamp_dt":start + timedelta(minutes=5),
+        "source_ip":"192.168.1.50",
+        "event_type":"successful_login",
+        "username":"admin"
+    })
+    
+    alerts = detect_success_after_brute_force(events)
+    
+    assert len(alerts)==1
+    
+    alert = alerts[0]
+    
+    assert alert["first_seen"] == start.isoformat()
+    assert alert["last_seen"] == (start + timedelta(minutes=5)).isoformat()
+    assert alert["usernames"] == ["admin"]
+    assert "detected_at" in alert
+    assert "192.168.1.50" in alert["description"]
+    assert "admin" in alert["description"]

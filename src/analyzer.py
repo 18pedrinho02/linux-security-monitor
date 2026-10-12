@@ -77,6 +77,19 @@ def detect_brute_force(failed_logins):
 
                         if cooldown <= ALERT_COOLDOWN_SECONDS:
                             break
+                    username_text=(
+                        ", ".join(sorted(usernames))
+                        if usernames
+                        else "unknown"
+                    )
+                    
+                    description=(
+                        f"Detected {attempts} attempts of "
+                        f"failed authentication from IP {ip}, "
+                        f"in a window of {TIME_WINDOW_SECONDS} "
+                        f"seconds. Users names envolved: "
+                        f"{username_text}"
+                    )
 
                     alerts.append({
                         "source_ip": ip,
@@ -87,7 +100,8 @@ def detect_brute_force(failed_logins):
                         "first_seen":start_time.isoformat(),
                         "last_seen":current_time.isoformat(),
                         "detected_at":datetime.now().isoformat(),
-                        "usernames":sorted(usernames)
+                        "usernames":sorted(usernames),
+                        "description":description
                     })
 
                     last_alert_time[ip] = current_time
@@ -116,6 +130,7 @@ def detect_success_after_brute_force(events):
 
             success_time = event["timestamp_dt"]
             failed_attempts = 0
+            relevant_failed_events=[]
 
             for previous_event in ip_events:
 
@@ -131,14 +146,46 @@ def detect_success_after_brute_force(events):
 
                 if difference <= TIME_WINDOW_SECONDS:
                     failed_attempts += 1
+                    relevant_failed_events.append(previous_event)
 
             if failed_attempts >= FAILED_LOGIN_THRESHOLD:
+                
+                first_seen=relevant_failed_events[0]["timestamp_dt"]
+                
+                usernames={
+                    failed_event["username"]
+                    for failed_event in relevant_failed_events
+                    if failed_event.get("username")
+                }
+                
+                if event.get("username"):
+                    usernames.add(event["username"])
+                    
+                username_text=(
+                    ", ".join(sorted(usernames))
+                    if usernames
+                    else "unknown"
+                )
+                
+                description=(
+                    f"Detected a successful login after "
+                    f"{failed_attempts} attempts of failed authentication "
+                    f"from IP {ip}, in a window of {TIME_WINDOW_SECONDS} "
+                    f"seconds. Users names envolved: "
+                    f"{username_text}"
+                )
+                
                 alerts.append({
                     "source_ip": ip,
                     "attempts": failed_attempts,
                     "event_type": "successful_login_after_brute_force",
                     "window_seconds": TIME_WINDOW_SECONDS,
-                    "severity":get_alert_severity("successful_login_after_brute_force")
+                    "severity":get_alert_severity("successful_login_after_brute_force"),
+                    "first_seen":first_seen.isoformat(),
+                    "last_seen":success_time.isoformat(),
+                    "detected_at":datetime.now().isoformat(),
+                    "usernames":sorted(usernames),
+                    "description":description
                 })
 
                 break
