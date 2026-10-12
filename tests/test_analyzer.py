@@ -3,11 +3,12 @@ from datetime import datetime, timedelta
 from src.analyzer import detect_brute_force, detect_success_after_brute_force, get_alert_severity, format_alert
 
 
-def create_failed_event(ip, timestamp):
+def create_failed_event(ip, timestamp, username=None):
     return {
         "timestamp_dt": timestamp,
         "source_ip": ip,
-        "event_type": "failed_login"
+        "event_type": "failed_login",
+        "username":username
     }
 
 
@@ -297,4 +298,24 @@ def test_brute_force_alert_includes_timestamps():
     assert alerts[0]["last_seen"] == (
         start +timedelta(minutes=4)
     ).isoformat()
-    assert "detected_at" in alerts[0]
+    detected_at = datetime.fromisoformat(
+        alerts[0]["detected_at"]
+    )
+    assert detected_at is not None
+    
+def test_brute_force_alert_includes_username():
+    start = datetime(2026, 9, 27, 10, 0, 0)
+    
+    event = [
+        create_failed_event(
+            "192.168.1.50",
+            start + timedelta(minutes=minutes),
+            username="admin"
+        )
+        for minutes in [0,1,2,3,4]
+    ]
+    
+    alerts = detect_brute_force(event)
+    
+    assert len(alerts)==1
+    assert alerts[0]["usernames"]==["admin"]

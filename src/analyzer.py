@@ -49,6 +49,10 @@ def detect_brute_force(failed_logins):
         for i in range(len(events)):
             start_time = events[i]["timestamp_dt"]
             attempts = 1
+            usernames=set()
+            
+            if events[i].get("username"):
+                usernames.add(events[i]["username"])
 
             for j in range(i + 1, len(events)):
                 current_time = events[j]["timestamp_dt"]
@@ -61,6 +65,8 @@ def detect_brute_force(failed_logins):
                     break
 
                 attempts += 1
+                if events[j].get("username"):
+                    usernames.add(events[j]["username"])
 
                 if attempts >= FAILED_LOGIN_THRESHOLD:
 
@@ -80,7 +86,8 @@ def detect_brute_force(failed_logins):
                         "severity":get_alert_severity("brute_force"),
                         "first_seen":start_time.isoformat(),
                         "last_seen":current_time.isoformat(),
-                        "detected_at":datetime.now().isoformat()
+                        "detected_at":datetime.now().isoformat(),
+                        "usernames":sorted(usernames)
                     })
 
                     last_alert_time[ip] = current_time
